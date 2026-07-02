@@ -764,6 +764,32 @@ open class Terminal {
         return buffer.lines [row-buffer.linesTop]
     }
 
+    /// Cursor row in scroll-invariant coordinates — the same row space as
+    /// `getScrollInvariantLine(row:)`. Host apps can use this to record a
+    /// stable identifier for "the line the cursor is on right now" that
+    /// remains addressable after scrollback rotation.
+    public var scrollInvariantCursorRow: Int {
+        buffer.linesTop + buffer.yBase + buffer.y
+    }
+
+    /// Lowest valid row in scroll-invariant coordinates — i.e. the oldest
+    /// row still present in scrollback. Increases monotonically as the
+    /// circular buffer recycles old lines. Useful for converting an
+    /// invariant row back to a viewport-relative row for `scrollTo(row:)`.
+    public var scrollInvariantLinesTop: Int {
+        buffer.linesTop
+    }
+
+    /// Highest `row` value `TerminalView.scrollTo(row:)` will accept without
+    /// pinning the viewport past the end of the scrollback (rendering empty
+    /// rows below the last line, which on a translucent background looks
+    /// like the panel itself went transparent). Equal to
+    /// `buffer.lines.count - rows`, clamped to `0` when there's no
+    /// scrollback yet.
+    public var maxScrollbackRow: Int {
+        max(0, buffer.lines.count - rows)
+    }
+
     /// Returns the character at the specified column and row, these are zero-based
     /// - Parameter col: column to retrieve, starts at 0
     /// - Parameter row: row to retrieve, starts at 0
