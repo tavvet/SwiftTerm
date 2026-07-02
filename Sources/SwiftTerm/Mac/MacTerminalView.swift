@@ -619,6 +619,128 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
         }
     }
 
+    /// Directional arguments for the keyboard selection API added for Shade.
+    public enum ShadeKeyboardDirection {
+        case left, right, up, down, lineStart, lineEnd
+    }
+
+    /// True iff the in-buffer selection (mouse or keyboard) is currently active.
+    public var hasKeyboardSelection: Bool { selection.active }
+
+    /// Extends the selection one character — or one word, if `byWord` — in `direction`.
+    /// Anchored at the current terminal cursor if no selection exists yet.
+    public func extendKeyboardSelection(direction: ShadeKeyboardDirection, byWord: Bool) {
+        let buffer = terminal.buffer
+        if !selection.active {
+            let anchor = Position(col: buffer.x, row: buffer.y + buffer.yDisp)
+            selection.setSoftStart(bufferPosition: anchor)
+        }
+
+        var pos = selection.end
+        let cols = terminal.cols
+        let maxRow = max(0, buffer.lines.maxLength - 1)
+
+        switch direction {
+        case .left:
+            if byWord {
+                pos = wordPositionLeft(from: pos)
+            } else if pos.col > 0 {
+                pos.col -= 1
+            } else if pos.row > 0 {
+                pos.row -= 1
+                pos.col = cols - 1
+            }
+        case .right:
+            if byWord {
+                pos = wordPositionRight(from: pos)
+            } else if pos.col < cols - 1 {
+                pos.col += 1
+            } else if pos.row < maxRow {
+                pos.row += 1
+                pos.col = 0
+            }
+        case .up:
+            if pos.row > 0 { pos.row -= 1 }
+        case .down:
+            if pos.row < maxRow { pos.row += 1 }
+        case .lineStart:
+            pos.col = 0
+        case .lineEnd:
+            pos.col = cols - 1
+        }
+
+        selection.shiftExtend(bufferPosition: pos)
+        terminal.updateFullScreen()
+        queuePendingDisplay()
+        needsDisplay = true
+    }
+
+    /// Clear any active selection and request a redraw.
+    public func clearKeyboardSelection() {
+        guard selection.active else { return }
+        selection.selectNone()
+        terminal.updateFullScreen()
+        queuePendingDisplay()
+        needsDisplay = true
+    }
+
+    // MARK: keyboard selection helpers
+
+    private func keyboardSelectionChar(at p: Position) -> Character {
+        let buffer = terminal.buffer
+        guard p.row >= 0, p.row < buffer.lines.count else { return " " }
+        let line = buffer.lines[p.row]
+        guard p.col >= 0, p.col < line.count else { return " " }
+        return terminal.getCharacter(for: line[p.col])
+    }
+
+    private func isKeyboardWordChar(_ ch: Character) -> Bool {
+        ch.isLetter || ch.isNumber || ch == "_"
+    }
+
+    private func wordPositionLeft(from start: Position) -> Position {
+        var pos = start
+        let cols = terminal.cols
+        guard pos.col > 0 || pos.row > 0 else { return start }
+        // Step one back first so we don't get stuck on a word boundary.
+        if pos.col > 0 { pos.col -= 1 }
+        else { pos.row -= 1; pos.col = cols - 1 }
+        // Skip non-word characters.
+        while !isKeyboardWordChar(keyboardSelectionChar(at: pos)) {
+            if pos.col > 0 { pos.col -= 1 }
+            else if pos.row > 0 { pos.row -= 1; pos.col = cols - 1 }
+            else { return pos }
+        }
+        // Walk to the start of the word.
+        while pos.col > 0,
+              isKeyboardWordChar(keyboardSelectionChar(at: Position(col: pos.col - 1, row: pos.row))) {
+            pos.col -= 1
+        }
+        return pos
+    }
+
+    private func wordPositionRight(from start: Position) -> Position {
+        var pos = start
+        let cols = terminal.cols
+        let maxRow = max(0, terminal.buffer.lines.maxLength - 1)
+        // Skip current word.
+        while pos.col < cols, isKeyboardWordChar(keyboardSelectionChar(at: pos)) {
+            pos.col += 1
+        }
+        // Skip whitespace / punctuation.
+        while pos.col < cols, !isKeyboardWordChar(keyboardSelectionChar(at: pos)) {
+            pos.col += 1
+        }
+        if pos.col >= cols, pos.row < maxRow {
+            pos.row += 1
+            pos.col = 0
+            while pos.col < cols, !isKeyboardWordChar(keyboardSelectionChar(at: pos)) {
+                pos.col += 1
+            }
+        }
+        return pos
+    }
+
     /// When true, block element (U+2580-U+259F) and box drawing (U+2500-U+257F) characters use custom rendering.
     public var customBlockGlyphs: Bool = true {
         didSet {
