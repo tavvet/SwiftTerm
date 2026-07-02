@@ -608,6 +608,17 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     /// Controls weather to use high ansi colors, if false terminal will use bold text instead of high ansi colors
     public var useBrightColors: Bool = true
 
+    /// Color used for the underline drawn under hovered/explicit (OSC 8) links.
+    /// When nil (default), SwiftTerm falls back to the cell's foreground color, which
+    /// can be hard to see against a translucent background.
+    public var linkHoverColor: NSColor? = nil {
+        didSet {
+            urlAttributes.removeAll()
+            terminal.updateFullScreen()
+            queuePendingDisplay()
+        }
+    }
+
     /// When true, block element (U+2580-U+259F) and box drawing (U+2500-U+257F) characters use custom rendering.
     public var customBlockGlyphs: Bool = true {
         didSet {
