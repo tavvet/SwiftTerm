@@ -627,6 +627,15 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     /// True iff the in-buffer selection (mouse or keyboard) is currently active.
     public var hasKeyboardSelection: Bool { selection.active }
 
+    /// Returns the currently-selected text (mouse- or keyboard-driven), or nil if
+    /// nothing is selected. Exposed so Shade can implement its own copy/cut path
+    /// that doesn't rely on the responder-chain `copy(_:)` selector.
+    public func shadeSelectedText() -> String? {
+        guard selection.active else { return nil }
+        let text = selection.getSelectedText()
+        return text.isEmpty ? nil : text
+    }
+
     /// Extends the selection one character — or one word, if `byWord` — in `direction`.
     /// Anchored at the current terminal cursor if no selection exists yet.
     public func extendKeyboardSelection(direction: ShadeKeyboardDirection, byWord: Bool) {
