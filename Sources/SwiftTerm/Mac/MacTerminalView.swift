@@ -982,6 +982,17 @@ open class TerminalView: NSView, NSTextInputClient, NSUserInterfaceValidations, 
     /// `.explicit` = OSC 8 only, `.implicit` = explicit + implicit fallback, `.none` = off.
     public var linkReporting: LinkReporting = .implicit
 
+    /// Color used to underline and tint links while they are highlighted.
+    /// When nil, links use the cell foreground color and retain their original
+    /// background.
+    public var linkHighlightColor: NSColor? {
+        didSet {
+            urlAttributes.removeAll()
+            terminal.updateFullScreen()
+            queuePendingDisplay()
+        }
+    }
+
     /// Controls link highlighting and link activation behavior.
     public var linkHighlightMode: LinkHighlightMode = .hoverWithModifier {
         didSet {

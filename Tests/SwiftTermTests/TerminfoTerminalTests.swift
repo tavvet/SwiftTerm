@@ -107,6 +107,42 @@ import AppKit
 
 @MainActor
 struct TerminfoRendererTests {
+    @Test func linkHighlightColorControlsUnderlineAndBackgroundTint() throws {
+        let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 160, height: 40))
+        view.nativeForegroundColor = .white
+        view.nativeBackgroundColor = .black
+        view.linkHighlightColor = .systemYellow
+        let attribute = Attribute(fg: .defaultColor, bg: .defaultColor, style: .none)
+
+        let highlighted = try #require(view.getAttributes(attribute, withUrl: true))
+        let regular = try #require(view.getAttributes(attribute, withUrl: false))
+        let expectedBackground = try #require(
+            NSColor.black.blended(withFraction: 0.35, of: .systemYellow)
+        )
+
+        #expect(colorsMatch(highlighted[.underlineColor] as? NSColor, .systemYellow))
+        #expect(colorsMatch(highlighted[.backgroundColor] as? NSColor, expectedBackground))
+        #expect(colorsMatch(regular[.backgroundColor] as? NSColor, .black))
+    }
+
+    @Test func changingLinkHighlightColorInvalidatesCachedAttributes() throws {
+        let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 160, height: 40))
+        let attribute = Attribute(fg: .defaultColor, bg: .defaultColor, style: .none)
+        view.linkHighlightColor = .red
+        let first = try #require(view.getAttributes(attribute, withUrl: true))
+        #expect(colorsMatch(first[.underlineColor] as? NSColor, .red))
+
+        view.linkHighlightColor = .blue
+        let second = try #require(view.getAttributes(attribute, withUrl: true))
+
+        #expect(colorsMatch(second[.underlineColor] as? NSColor, .blue))
+
+        view.linkHighlightColor = nil
+        let restored = try #require(view.getAttributes(attribute, withUrl: true))
+        #expect(colorsMatch(restored[.underlineColor] as? NSColor, view.nativeForegroundColor))
+        #expect(colorsMatch(restored[.backgroundColor] as? NSColor, view.nativeBackgroundColor))
+    }
+
     @Test func reverseModeSwapsOnlyEffectiveDefaultColors() throws {
         let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 160, height: 40))
         view.nativeForegroundColor = .red
@@ -137,6 +173,15 @@ struct TerminfoRendererTests {
         view.caretTextColor = .yellow
         #expect(view.effectiveCaretColor == .green)
         #expect(view.effectiveCaretTextColor == .yellow)
+    }
+
+    private func colorsMatch(_ lhs: NSColor?, _ rhs: NSColor, tolerance: CGFloat = 0.001) -> Bool {
+        guard let left = lhs?.usingColorSpace(.deviceRGB),
+              let right = rhs.usingColorSpace(.deviceRGB) else { return false }
+        return abs(left.redComponent - right.redComponent) <= tolerance
+            && abs(left.greenComponent - right.greenComponent) <= tolerance
+            && abs(left.blueComponent - right.blueComponent) <= tolerance
+            && abs(left.alphaComponent - right.alphaComponent) <= tolerance
     }
 
     @Test func hiddenBlinkPhaseKeepsBackgroundAndRemovesTextDecorations() throws {

@@ -893,10 +893,22 @@ extension TerminalView {
         if flags.contains (.dim) {
             fgColor = fgColor.dimmedColor (towards: bgColor)
         }
+
+        #if os(macOS)
+        let effectiveBackgroundColor: NSColor = {
+            guard withUrl, let highlightColor = linkHighlightColor else {
+                return bgColor
+            }
+            return bgColor.blended(withFraction: 0.35, of: highlightColor) ?? bgColor
+        }()
+        #else
+        let effectiveBackgroundColor = bgColor
+        #endif
+
         var nsattr: [NSAttributedString.Key:Any] = [
             .font: tf,
             .foregroundColor: fgColor,
-            .backgroundColor: bgColor
+            .backgroundColor: effectiveBackgroundColor
         ]
         if flags.contains (.underline) {
             let underlineColor = attribute.underlineColor.map {
@@ -914,7 +926,11 @@ extension TerminalView {
 
         if withUrl {
             nsattr [.underlineStyle] = NSUnderlineStyle.single.rawValue
+            #if os(macOS)
+            nsattr [.underlineColor] = linkHighlightColor ?? fgColor
+            #else
             nsattr [.underlineColor] = fgColor
+            #endif
             nsattr [SwiftTermUnderlineStyleKey] = Int(UnderlineStyle.dashed.rawValue)
 
             // Add to cache; truecolor attributes are unbounded, so cap it
