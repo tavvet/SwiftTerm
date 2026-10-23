@@ -110,5 +110,35 @@ struct LinkColorTests {
         let plain = try attributes(of: "a", in: view)
         #expect(components(restored[.foregroundColor]) == components(plain[.foregroundColor]))
     }
+    @Test func highlightTintPreservesTextAndLeavesOrdinaryCellsAlone() throws {
+        let view = makeView()
+        let plain = try attributes(of: "a", in: view)
+        view.linkHighlightColor = blue
+        let link = try attributes(of: "L", in: view)
+        let ordinary = try attributes(of: "b", in: view)
+        let background = try #require(plain[.backgroundColor] as? NSColor)
+        let blended = try #require(background.blended(withFraction: 0.35, of: blue))
+        #expect(components(link[.foregroundColor]) == components(plain[.foregroundColor]))
+        #expect(components(link[.underlineColor]) == components(blue))
+        #expect(components(link[.backgroundColor]) == components(blended))
+        #expect(components(ordinary[.backgroundColor]) == components(background))
+    }
+
+    @Test func changingHighlightTintInvalidatesCachedAttributes() throws {
+        let view = makeView()
+        view.linkHighlightColor = blue
+        let first = try attributes(of: "L", in: view)
+        let identity = view.textBuilder.attributeCacheContextID
+        view.linkHighlightColor = green
+        let second = try attributes(of: "L", in: view)
+        #expect(view.textBuilder.attributeCacheContextID != identity)
+        #expect(components(second[.backgroundColor]) != components(first[.backgroundColor]))
+        #expect(components(second[.underlineColor]) == components(green))
+        view.linkHighlightColor = nil
+        let restored = try attributes(of: "L", in: view)
+        let plain = try attributes(of: "a", in: view)
+        #expect(components(restored[.backgroundColor]) == components(plain[.backgroundColor]))
+    }
+
 }
 #endif

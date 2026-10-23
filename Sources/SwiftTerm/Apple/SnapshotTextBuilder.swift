@@ -327,7 +327,7 @@ final class SnapshotTextBuilder {
 
         var foregroundColor = mapColor(color: foreground, isFg: true,
                                        isBold: isBold, context: context)
-        let backgroundColor = mapColor(color: background, isFg: false,
+        var backgroundColor = mapColor(color: background, isFg: false,
                                        isBold: false, context: context)
         if flags.contains(.dim) {
             foregroundColor = foregroundColor.dimmedColor(towards: backgroundColor)
@@ -338,6 +338,21 @@ final class SnapshotTextBuilder {
             // any SGR underline or strikethrough. The contrast floor below
             // still applies to it, as it does to any other color.
             foregroundColor = linkColor
+        }
+        if withUrl, let tint = context.linkHighlightColor {
+            #if os(macOS)
+            backgroundColor = backgroundColor.blended(withFraction: 0.35, of: tint) ?? backgroundColor
+            #else
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            var tr: CGFloat = 0, tg: CGFloat = 0, tb: CGFloat = 0, ta: CGFloat = 0
+            if backgroundColor.getRed(&r, green: &g, blue: &b, alpha: &a),
+               tint.getRed(&tr, green: &tg, blue: &tb, alpha: &ta) {
+                backgroundColor = UIColor(red: r * 0.65 + tr * 0.35,
+                                          green: g * 0.65 + tg * 0.35,
+                                          blue: b * 0.65 + tb * 0.35,
+                                          alpha: a * 0.65 + ta * 0.35)
+            }
+            #endif
         }
         let shapeColor = foregroundColor
         foregroundColor = foregroundColor.withContrast(atLeast: context.minimumContrastRatio,
@@ -376,7 +391,7 @@ final class SnapshotTextBuilder {
         }
         if withUrl {
             result[.underlineStyle] = NSUnderlineStyle.single.rawValue
-            result[.underlineColor] = foregroundColor
+            result[.underlineColor] = context.linkHighlightColor ?? foregroundColor
             result[SwiftTermUnderlineStyleKey] = Int(UnderlineStyle.dashed.rawValue)
         }
         return SnapshotTextAttributes(result)

@@ -235,6 +235,15 @@ open class TerminalView: UIScrollView, UITextInputTraits, UIKeyInput, UIScrollVi
         }
     }
 
+    /// Underline color and 35% background tint for highlighted links.
+    /// Unlike `linkColor`, this preserves the cell's text color.
+    public var linkHighlightColor: UIColor? {
+        didSet {
+            withTerminal { $0.updateFullScreen() }
+            frameDriver.markDirty()
+        }
+    }
+
     /// The color used to draw link text and its underline, or `nil` (the
     /// default) to draw each link in its cell's own foreground color.
     ///
