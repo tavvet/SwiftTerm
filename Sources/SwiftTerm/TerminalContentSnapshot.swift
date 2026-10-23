@@ -25,6 +25,7 @@ public struct TerminalInputStateSnapshot: Sendable, Equatable {
     public let keyboardEnhancementFlags: KittyKeyboardFlags
     /// Whether the application enabled focus reports (DECSET 1004).
     public let focusReportingEnabled: Bool
+    public let geometryGeneration: UInt64
 
     public init(
         dimensions: TerminalDimensions,
@@ -34,7 +35,8 @@ public struct TerminalInputStateSnapshot: Sendable, Equatable {
         bracketedPasteMode: Bool,
         mouseMode: Terminal.MouseMode,
         keyboardEnhancementFlags: KittyKeyboardFlags,
-        focusReportingEnabled: Bool
+        focusReportingEnabled: Bool,
+        geometryGeneration: UInt64 = 0
     ) {
         self.dimensions = dimensions
         self.isAlternateBuffer = isAlternateBuffer
@@ -44,6 +46,7 @@ public struct TerminalInputStateSnapshot: Sendable, Equatable {
         self.mouseMode = mouseMode
         self.keyboardEnhancementFlags = keyboardEnhancementFlags
         self.focusReportingEnabled = focusReportingEnabled
+        self.geometryGeneration = geometryGeneration
     }
 }
 
@@ -141,7 +144,8 @@ extension Terminal {
             bracketedPasteMode: bracketedPasteMode,
             mouseMode: mouseMode,
             keyboardEnhancementFlags: keyboardEnhancementFlags,
-            focusReportingEnabled: sendFocus)
+            focusReportingEnabled: sendFocus,
+            geometryGeneration: geometryGeneration)
     }
 
     func displayText(buffer: Buffer, line lineIndex: Int, columns: Int) -> String {

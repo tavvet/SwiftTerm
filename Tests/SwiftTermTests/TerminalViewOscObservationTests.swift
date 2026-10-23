@@ -20,7 +20,7 @@ struct TerminalViewOscObservationTests {
         view.feed(text: "\u{1b}]777;notify;Title;Body\u{7}")
 
         #expect(delivered.wait(timeout: .now() + 2) == .success)
-        #expect(received.withLock { $0 } == [
+        #expect(received.withLock { $0.map { TerminalOscEvent(code: $0.code, payload: $0.payload, cursor: $0.cursor) } } == [
             TerminalOscEvent(code: 777, payload: Array("notify;Title;Body".utf8))
         ])
         withExtendedLifetime(observation) {}

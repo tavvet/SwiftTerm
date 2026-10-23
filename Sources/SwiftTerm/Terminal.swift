@@ -764,6 +764,8 @@ open class Terminal {
 
     /// Owns copied OSC observations independently of parser storage.
     private let oscEventDispatcher = TerminalOscEventDispatcher()
+    /// Invalidates copied host coordinates after reflow, reset or a local clear.
+    var geometryGeneration: UInt64 = 0
 
     /// The current parser nesting depth. Scroll notifications are delivered
     /// when the outer parse operation finishes.
@@ -1732,12 +1734,24 @@ open class Terminal {
         oscEventDispatcher.observe(handler)
     }
 
-    /// Enqueues one copied event before synchronous parser dispatch continues.
-    func publishOscEvent(code: Int, payload: ArraySlice<UInt8>) {
+    /// Enqueues a copied event before the parser consumes later bytes.
+    func publishOscEvent(code: Int, payload: ArraySlice<UInt8>, cursor: Position? = nil) {
+        #if SWIFTTERM_EMBEDDED
+        let timestamp: Double? = nil
+        #else
+        let timestamp: Double? = Date.timeIntervalSinceReferenceDate
+        #endif
         oscEventDispatcher.publish(
             code: code,
             payload: payload,
-            cursor: Position(col: buffer.x, row: buffer.y)
+            cursor: cursor ?? Position(col: buffer.x, row: buffer.y),
+            context: TerminalOscContext(
+                bufferCursor: Position(col: buffer.x, row: buffer.linesTop + buffer.yBase + buffer.y),
+                firstRetainedRow: buffer.linesTop,
+                isAlternateBuffer: isCurrentBufferAlternate,
+                dimensions: TerminalDimensions(cols: cols, rows: rows),
+                geometryGeneration: geometryGeneration,
+                timestamp: timestamp)
         )
     }
     
@@ -7792,6 +7806,7 @@ open class Terminal {
     /// for a soft reset see `softReset`
     public func resetToInitialState ()
     {
+        geometryGeneration &+= 1
         setCurrentBidiState(options.initialBidiState)
         bidiArrowKeySwap = options.initialBidiArrowKeySwap
         options.rows = rows
@@ -8277,6 +8292,7 @@ open class Terminal {
         endSynchronizedOutput ()
         if newCols != self.cols || newRows != self.rows {
             let oldCols = self.cols
+            if newCols != oldCols { geometryGeneration &+= 1 }
             resizeBuffers(newColumns: newCols, newRows: newRows)
             self._cols = newCols
             self._rows = newRows
@@ -8375,6 +8391,7 @@ open class Terminal {
     {
         // Only the normal buffer has scrollback
         normalBuffer.clearScrollback ()
+        geometryGeneration &+= 1
         refresh (startRow: 0, endRow: self.rows - 1)
     }
 

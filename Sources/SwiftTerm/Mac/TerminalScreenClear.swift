@@ -22,6 +22,7 @@ extension TerminalView {
                 firstPreservedRow = max(screenTop, min(firstPreservedRow, prompt.row))
             }
             guard screenTop < firstPreservedRow else { return false }
+            terminal.geometryGeneration &+= 1
             let blank = BufferLine(cols: terminal.cols)
             for row in screenTop..<firstPreservedRow {
                 buffer.lines[row].copyFrom(line: blank)

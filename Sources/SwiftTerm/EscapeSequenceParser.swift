@@ -143,6 +143,29 @@ protocol  DcsHandler {
     func unhook ()
 }
 
+/// Geometry copied at the parser boundary, never inferred at delivery time.
+/// For built-in OSC 133 handling this includes its prompt-row transition.
+public struct TerminalOscContext: Equatable, Sendable {
+    public let bufferCursor: Position
+    public let firstRetainedRow: Int
+    public let isAlternateBuffer: Bool
+    public let dimensions: TerminalDimensions
+    public let geometryGeneration: UInt64
+    /// Wall-clock seconds since the Foundation reference date, when available.
+    public let timestamp: Double?
+
+    public init(bufferCursor: Position, firstRetainedRow: Int, isAlternateBuffer: Bool,
+                dimensions: TerminalDimensions, geometryGeneration: UInt64,
+                timestamp: Double? = nil) {
+        self.bufferCursor = bufferCursor
+        self.firstRetainedRow = firstRetainedRow
+        self.isAlternateBuffer = isAlternateBuffer
+        self.dimensions = dimensions
+        self.geometryGeneration = geometryGeneration
+        self.timestamp = timestamp
+    }
+}
+
 /// One OSC sequence observed at the parser boundary.
 ///
 /// The payload is an owned copy. It stays valid after parser dispatch returns.
@@ -155,15 +178,18 @@ public struct TerminalOscEvent: Equatable, Sendable {
 
     /// The cursor position when the parser receives this OSC sequence.
     public let cursor: Position
+    public let context: TerminalOscContext?
 
     public init(
         code: Int,
         payload: [UInt8],
-        cursor: Position = Position(col: 0, row: 0)
+        cursor: Position = Position(col: 0, row: 0),
+        context: TerminalOscContext? = nil
     ) {
         self.code = code
         self.payload = payload
         self.cursor = cursor
+        self.context = context
     }
 }
 
@@ -231,14 +257,15 @@ final class TerminalOscEventDispatcher: @unchecked Sendable {
 #endif
     }
 
-    func publish(code: Int, payload: ArraySlice<UInt8>, cursor: Position) {
+    func publish(code: Int, payload: ArraySlice<UInt8>, cursor: Position,
+                 context: TerminalOscContext) {
 #if SWIFTTERM_EMBEDDED
         let registrations = state.registrations
 #else
         let registrations = state.withLock { $0.registrations }
 #endif
         guard !registrations.isEmpty else { return }
-        let event = TerminalOscEvent(code: code, payload: Array(payload), cursor: cursor)
+        let event = TerminalOscEvent(code: code, payload: Array(payload), cursor: cursor, context: context)
 
 #if SWIFTTERM_EMBEDDED
         for registration in registrations {
@@ -751,6 +778,15 @@ final class EscapeSequenceParser {
 
     func dispatchOsc(code: Int, data: ArraySlice<UInt8>,
                      terminator: UInt8 = 0x1b, _ terminal: Terminal) {
+        // The built-in semantic handler may start a fresh prompt row. Copy
+        // its resulting geometry before later bytes can change it. Preserve
+        // the existing pre-dispatch cursor value and override ordering.
+        if code == 133, oscHandlers[code] == nil {
+            let cursor = Position(col: terminal.buffer.x, row: terminal.buffer.y)
+            terminal.oscSemanticPrompt(data)
+            terminal.publishOscEvent(code: code, payload: data, cursor: cursor)
+            return
+        }
         // Publish at encounter time. If a synchronous override performs a
         // nested feed, the outer event stays before the nested event.
         terminal.publishOscEvent(code: code, payload: data)
