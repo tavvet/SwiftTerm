@@ -36,7 +36,7 @@ struct ParserEventBoundaryTests {
         #expect(overrideSnapshot.called)
         #expect(overrideSnapshot.heldTerminalLock)
         #expect(delivered.wait(timeout: .now() + 2) == .success)
-        #expect(received.withLock { $0 } == [
+        #expect(received.withLock { $0.map { TerminalOscEvent(code: $0.code, payload: $0.payload, cursor: $0.cursor) } } == [
             TerminalOscEvent(code: 777, payload: Array("outer".utf8)),
             TerminalOscEvent(code: 778, payload: Array("nested".utf8)),
         ])
