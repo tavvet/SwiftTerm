@@ -373,7 +373,7 @@ final class SnapshotTextBuilder {
             ltrWritingDirectionKey: ltrWritingDirectionValue,
             .paragraphStyle: ltrParagraphStyle,
         ]
-        if background != .defaultColor {
+        if background != .defaultColor || (withUrl && context.linkHighlightColor != nil) {
             result[SwiftTermExplicitBackgroundKey] = true
         }
         if flags.contains(.underline) {

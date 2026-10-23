@@ -121,7 +121,9 @@ struct LinkColorTests {
         #expect(components(link[.foregroundColor]) == components(plain[.foregroundColor]))
         #expect(components(link[.underlineColor]) == components(blue))
         #expect(components(link[.backgroundColor]) == components(blended))
+        #expect(link[SwiftTermExplicitBackgroundKey] as? Bool == true)
         #expect(components(ordinary[.backgroundColor]) == components(background))
+        #expect(ordinary[SwiftTermExplicitBackgroundKey] == nil)
     }
 
     @Test func changingHighlightTintInvalidatesCachedAttributes() throws {
@@ -138,6 +140,7 @@ struct LinkColorTests {
         let restored = try attributes(of: "L", in: view)
         let plain = try attributes(of: "a", in: view)
         #expect(components(restored[.backgroundColor]) == components(plain[.backgroundColor]))
+        #expect(restored[SwiftTermExplicitBackgroundKey] == nil)
     }
 
 }
