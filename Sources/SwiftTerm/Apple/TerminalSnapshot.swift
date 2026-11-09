@@ -252,6 +252,7 @@ final class TerminalSnapshot {
             caretTextColor: appearance.caretTextColor.nativeColor,
             linkColor: appearance.linkColor?.nativeColor,
             linkUnderlineColor: appearance.linkUnderlineColor?.nativeColor,
+            linkHighlightColor: appearance.linkHighlightColor?.nativeColor,
             ansiColors: ansiColors.map(TTColor.make(color:)))
         nativeColorCache = NativeColorCache(
             appearance: appearance, ansiColors: ansiColors, nativeColors: result)

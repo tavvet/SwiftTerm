@@ -214,6 +214,20 @@ struct TranslucentCellBackgroundTests {
         return Array(pixels[offset..<(offset + 4)])
     }
 
+    @Test func shadeTintDrawsActualCoreGraphicsPixels() {
+        let rows = String(repeating: "\u{1b}]8;;https://example.test\u{07}" + String(repeating: " ", count: 60) + "\u{1b}]8;;\u{07}\r\n", count: 10)
+        let plain = makePixelView(translucent: false, feed: rows)
+        plain.linkHighlightMode = .always
+        let tinted = makePixelView(translucent: false, feed: rows)
+        tinted.linkHighlightMode = .always
+        tinted.linkHighlightColor = .blue
+        let before = coreGraphicsCenterPixel(plain)
+        let after = coreGraphicsCenterPixel(tinted)
+        #expect(after[2] > before[2] + 20)
+        tinted.linkHighlightColor = nil
+        #expect(coreGraphicsCenterPixel(tinted) == before)
+    }
+
     private func makePixelView(translucent: Bool, feed text: String = explicitRows) -> TerminalView {
         let view = TerminalView(frame: CGRect(x: 0, y: 0, width: 120, height: 120))
         view.nativeBackgroundColor = NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 1)

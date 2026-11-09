@@ -327,7 +327,7 @@ final class SnapshotTextBuilder {
 
         var foregroundColor = mapColor(color: foreground, isFg: true,
                                        isBold: isBold, context: context)
-        let backgroundColor = mapColor(color: background, isFg: false,
+        var backgroundColor = mapColor(color: background, isFg: false,
                                        isBold: false, context: context)
         if flags.contains(.dim) {
             foregroundColor = foregroundColor.dimmedColor(towards: backgroundColor)
@@ -338,6 +338,21 @@ final class SnapshotTextBuilder {
             // any SGR underline or strikethrough. The contrast floor below
             // still applies to it, as it does to any other color.
             foregroundColor = linkColor
+        }
+        if withUrl, let tint = context.linkHighlightColor {
+            #if os(macOS)
+            backgroundColor = backgroundColor.blended(withFraction: 0.35, of: tint) ?? backgroundColor
+            #else
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            var tr: CGFloat = 0, tg: CGFloat = 0, tb: CGFloat = 0, ta: CGFloat = 0
+            if backgroundColor.getRed(&r, green: &g, blue: &b, alpha: &a),
+               tint.getRed(&tr, green: &tg, blue: &tb, alpha: &ta) {
+                backgroundColor = UIColor(red: r * 0.65 + tr * 0.35,
+                                          green: g * 0.65 + tg * 0.35,
+                                          blue: b * 0.65 + tb * 0.35,
+                                          alpha: a * 0.65 + ta * 0.35)
+            }
+            #endif
         }
         let shapeColor = foregroundColor
         foregroundColor = foregroundColor.withContrast(atLeast: context.minimumContrastRatio,
@@ -359,7 +374,7 @@ final class SnapshotTextBuilder {
             ltrWritingDirectionKey: ltrWritingDirectionValue,
             .paragraphStyle: ltrParagraphStyle,
         ]
-        if background != .defaultColor {
+        if background != .defaultColor || (withUrl && context.linkHighlightColor != nil) {
             result[SwiftTermExplicitBackgroundKey] = true
         }
         if flags.contains(.underline) {
@@ -799,6 +814,9 @@ final class SnapshotTextBuilder {
             }
             let hasUrl = shouldUnderlineLink(row: absoluteRow, column: col, width: 1,
                                              cell: cell, context: context)
+            // The shaped path owns the custom background blend and explicit fill.
+            // Do not let the Metal plain-row optimization silently omit the tint.
+            if hasUrl && context.linkHighlightColor != nil { return nil }
             let isSelected = isColumnSelected(selectionColumns, column: col, width: 1)
             let textHidden = attribute.style.contains(.invisible) || (!context.textBlinkVisible && attribute.style.contains(.blink))
             codes.append(textHidden || code == 0 ? 0x20 : UInt8(code))

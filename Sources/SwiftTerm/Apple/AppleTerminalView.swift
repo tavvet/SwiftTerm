@@ -220,6 +220,7 @@ struct FrameAppearance: Sendable, Equatable {
     let linkColor: FrameColor?
     /// Overrides only the underline of highlighted links.
     let linkUnderlineColor: FrameColor?
+    let linkHighlightColor: FrameColor?
 }
 
 /// Caches main-actor font copies and dynamic-color resolution for frame input.
@@ -234,6 +235,7 @@ final class FrameCaptureCache {
     private var sourceColors: [TTColor] = []
     private var sourceLinkColor: TTColor?
     private var sourceLinkUnderlineColor: TTColor?
+    private var sourceLinkHighlightColor: TTColor?
     private var appearanceSignature = 0
     private var cachedAppearance: FrameAppearance?
 
@@ -270,7 +272,8 @@ final class FrameCaptureCache {
             view.effectiveCaretTextColor
         ]
         let linkColor = view.linkColor
-        let linkUnderlineColor = view.linkUnderlineColor
+        let linkUnderlineColor = view.linkUnderlineColor ?? view.linkHighlightColor
+        let linkHighlightColor = view.linkHighlightColor
 #if os(macOS)
         let signature = view.effectiveAppearance.name.rawValue.hashValue
 #else
@@ -281,7 +284,8 @@ final class FrameCaptureCache {
            sourceColors.count == current.count,
            zip(sourceColors, current).allSatisfy({ $0.0.isEqual($0.1) }),
            sourceLinkColor?.isEqual(linkColor) ?? (linkColor == nil),
-           sourceLinkUnderlineColor?.isEqual(linkUnderlineColor) ?? (linkUnderlineColor == nil) {
+           sourceLinkUnderlineColor?.isEqual(linkUnderlineColor) ?? (linkUnderlineColor == nil),
+           sourceLinkHighlightColor?.isEqual(linkHighlightColor) ?? (linkHighlightColor == nil) {
             return cachedAppearance
         }
 
@@ -293,10 +297,12 @@ final class FrameCaptureCache {
             caretColor: FrameColor(current[4], view: view),
             caretTextColor: FrameColor(current[5], view: view),
             linkColor: linkColor.map { FrameColor($0, view: view) },
-            linkUnderlineColor: linkUnderlineColor.map { FrameColor($0, view: view) })
+            linkUnderlineColor: linkUnderlineColor.map { FrameColor($0, view: view) },
+            linkHighlightColor: linkHighlightColor.map { FrameColor($0, view: view) })
         sourceColors = current
         sourceLinkColor = linkColor
         sourceLinkUnderlineColor = linkUnderlineColor
+        sourceLinkHighlightColor = linkHighlightColor
         appearanceSignature = signature
         cachedAppearance = result
 #if DEBUG
@@ -631,6 +637,7 @@ struct SnapshotNativeColors {
     let caretTextColor: TTColor
     let linkColor: TTColor?
     let linkUnderlineColor: TTColor?
+    let linkHighlightColor: TTColor?
     let ansiColors: [TTColor]
 }
 
@@ -654,6 +661,7 @@ struct SnapshotRenderContext {
     /// `nil` keeps the cell's own colors.
     let linkColor: TTColor?
     let linkUnderlineColor: TTColor?
+    let linkHighlightColor: TTColor?
     let ansiColors: [TTColor]
     let selection: SnapshotSelectionResolver
     let textBlinkVisible: Bool
@@ -711,6 +719,7 @@ struct SnapshotRenderContext {
                 caretTextColor: appearance.caretTextColor.nativeColor,
                 linkColor: appearance.linkColor?.nativeColor,
                 linkUnderlineColor: appearance.linkUnderlineColor?.nativeColor,
+                linkHighlightColor: appearance.linkHighlightColor?.nativeColor,
                 ansiColors: ansiColors.map(TTColor.make(color:))),
             cols: cols)
     }
@@ -734,6 +743,7 @@ struct SnapshotRenderContext {
         caretTextColor = nativeColors.caretTextColor
         linkColor = nativeColors.linkColor
         linkUnderlineColor = nativeColors.linkUnderlineColor
+        linkHighlightColor = nativeColors.linkHighlightColor
         ansiColors = nativeColors.ansiColors
         selection = SnapshotSelectionResolver(style: style, cols: cols)
         textBlinkVisible = style.textBlinkVisible
@@ -772,6 +782,7 @@ struct SnapshotRenderContext {
         identityHasher.combine(caretTextColor.hash)
         identityHasher.combine(linkColor?.hash)
         identityHasher.combine(linkUnderlineColor?.hash)
+        identityHasher.combine(linkHighlightColor?.hash)
         for color in self.ansiColors {
             identityHasher.combine(color.hash)
         }

@@ -211,5 +211,87 @@ struct LinkColorTests {
         #expect(components(selected[.underlineColor]) == components(NSColor.red))
     }
 
+    @Test func highlightTintPreservesTextAndLeavesOrdinaryCellsAlone() throws {
+        let view = makeView()
+        let plain = try attributes(of: "a", in: view)
+        view.linkHighlightColor = blue
+        let link = try attributes(of: "L", in: view)
+        let ordinary = try attributes(of: "b", in: view)
+        let background = try #require(plain[.backgroundColor] as? NSColor)
+        let blended = try #require(background.blended(withFraction: 0.35, of: blue))
+        #expect(components(link[.foregroundColor]) == components(plain[.foregroundColor]))
+        #expect(components(link[.underlineColor]) == components(blue))
+        #expect(components(link[.backgroundColor]) == components(blended))
+        #expect(link[SwiftTermExplicitBackgroundKey] as? Bool == true)
+        #expect(components(ordinary[.backgroundColor]) == components(background))
+        #expect(ordinary[SwiftTermExplicitBackgroundKey] == nil)
+    }
+
+    @Test func changingHighlightTintInvalidatesCachedAttributes() throws {
+        let view = makeView()
+        view.linkHighlightColor = blue
+        let first = try attributes(of: "L", in: view)
+        let identity = view.textBuilder.attributeCacheContextID
+        view.linkHighlightColor = green
+        let second = try attributes(of: "L", in: view)
+        #expect(view.textBuilder.attributeCacheContextID != identity)
+        #expect(components(second[.backgroundColor]) != components(first[.backgroundColor]))
+        #expect(components(second[.underlineColor]) == components(green))
+        view.linkHighlightColor = nil
+        let restored = try attributes(of: "L", in: view)
+        let plain = try attributes(of: "a", in: view)
+        #expect(components(restored[.backgroundColor]) == components(plain[.backgroundColor]))
+        #expect(restored[SwiftTermExplicitBackgroundKey] == nil)
+    }
+
+    @Test func upstreamUnderlineOverrideCoexistsWithBackgroundTint() throws {
+        let view = makeView()
+        view.linkHighlightColor = blue
+        let tinted = try attributes(of: "L", in: view)
+        view.linkUnderlineColor = green
+        let overridden = try attributes(of: "L", in: view)
+        #expect(components(overridden[.underlineColor]) == components(green))
+        #expect(components(overridden[.backgroundColor]) == components(tinted[.backgroundColor]))
+        #expect(components(overridden[.foregroundColor]) == components(tinted[.foregroundColor]))
+        view.linkHighlightColor = nil
+        let underlineOnly = try attributes(of: "L", in: view)
+        #expect(components(underlineOnly[.underlineColor]) == components(green))
+        #expect(underlineOnly[SwiftTermExplicitBackgroundKey] == nil)
+    }
+
+    @Test func tintedLinksUseShapedPathRatherThanDroppingMetalBackground() throws {
+        let view = makeView()
+        view.linkHighlightColor = blue
+        let snapshot = TerminalSnapshot()
+        view.withTerminal { terminal in
+            _ = snapshot.refresh(terminal: terminal, viewState: FrameViewState(view: view),
+                                 selection: SnapshotSelectionState(selection: view.selection))
+        }
+        let row = try #require(snapshot.rows.first)
+        let context = SnapshotRenderContext(viewState: FrameViewState(view: view), snapshot: snapshot)
+        #expect(view.textBuilder.plainRow(row: row, absoluteRow: snapshot.firstRow, context: context) == nil)
+        #expect(try attributes(of: "L", in: view)[SwiftTermExplicitBackgroundKey] as? Bool == true)
+    }
+
+    @Test func tintTracksAppearanceAndSelectionStillWins() throws {
+        let view = makeView()
+        view.linkHighlightColor = NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .green : .blue
+        }
+        view.appearance = NSAppearance(named: .aqua)
+        let light = try attributes(of: "L", in: view)
+        let identity = view.textBuilder.attributeCacheContextID
+        view.appearance = NSAppearance(named: .darkAqua)
+        let dark = try attributes(of: "L", in: view)
+        #expect(components(light[.backgroundColor]) != components(dark[.backgroundColor]))
+        #expect(view.textBuilder.attributeCacheContextID != identity)
+        view.selectedTextForegroundColor = .red
+        view.selection.startSelection(row: 0, col: 1)
+        view.selection.dragExtend(bufferPosition: Position(col: 2, row: 0))
+        let selected = try attributes(of: "L", in: view)
+        #expect(components(selected[.foregroundColor]) == components(NSColor.red))
+        #expect(components(selected[.underlineColor]) == components(NSColor.red))
+    }
+
 }
 #endif
