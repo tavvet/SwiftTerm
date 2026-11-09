@@ -5225,6 +5225,21 @@ open class TerminalView: NSView, NSUserInterfaceValidations, TerminalDelegate {
     /// `LocalProcessTerminalView` sets it to true. A local shell can still
     /// start a remote session, for example with ssh; SwiftTerm cannot see that.
     public var resolvesLinksAgainstShellDirectory = false
+
+    /// Supplies a trusted local shell directory when OSC 7 supplies no directory.
+    /// Called on the main actor when checking a link, only when
+    /// `resolvesLinksAgainstShellDirectory` is true and OSC 7 has no usable base.
+    /// Local OSC 7 directories take precedence; remote OSC 7 paths stay blocked.
+    ///
+    /// Return an absolute local path obtained from trusted host process context,
+    /// not terminal output. Recheck that the session is local each time: a local
+    /// shell can start ssh. Return nil for a remote, unknown, or ended session.
+    /// Nil results, relative paths, and paths containing unsafe control or
+    /// invisible characters block detected filesystem paths instead of using
+    /// the application's directory. Removing the provider restores the upstream
+    /// application-directory default. The default provider is nil; all existing
+    /// URL and file safety checks still apply.
+    public var linkFallbackDirectoryProvider: (@MainActor () -> String?)?
 }
 
 extension TerminalView: @MainActor NSTextInputClient {}

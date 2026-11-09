@@ -171,6 +171,17 @@ extension TerminalView {
         // OSC 7 still blocks local paths.
         if !resolvesLinksAgainstShellDirectory, pathBase != .remote {
             pathBase = .processDirectory
+        } else if resolvesLinksAgainstShellDirectory, pathBase == .processDirectory,
+                  let provider = linkFallbackDirectoryProvider {
+            if let directory = provider(), directory.hasPrefix("/"),
+               !UntrustedTerminalLink.containsUnsafeCharacters(directory) {
+                pathBase = .directory(directory)
+            } else {
+                // An installed provider owns the local-session decision. Do
+                // not fall back to an unrelated app-cwd file when it cannot
+                // establish a trusted local directory.
+                pathBase = .remote
+            }
         }
         let target = Self.defaultLinkTarget(link, isExplicit: isExplicit, pathBase: pathBase)
         TerminalLinkOpening.request(target, window: window, presentAlert: presentAlert) { [weak self] url in

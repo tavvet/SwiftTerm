@@ -199,10 +199,23 @@ When a click/tap lands on an active link, ``TerminalView`` calls
   URLs. Alerts show as a sheet on the window of the view.
 - When `resolvesLinksAgainstShellDirectory` is true, a detected relative path
   resolves against the shell's directory, when the shell reports it with OSC 7.
-  Without OSC 7, or when the property is false, a relative path resolves
-  against the directory of the application. When OSC 7 names a different host,
-  detected paths are remote files, and SwiftTerm does not open them, with
+  By default, without OSC 7 or when the property is false, a relative path
+  resolves against the directory of the application. When OSC 7 names a
+  different host, detected paths are remote files, and SwiftTerm does not open them, with
   either value of the property.
+- A macOS host that tracks a local shell without OSC 7 can set
+  `linkFallbackDirectoryProvider` to return its current absolute local directory.
+  SwiftTerm calls this main-actor provider at link-check time only when
+  `resolvesLinksAgainstShellDirectory` is true and OSC 7 supplies no usable base.
+  Obtain the path from trusted process context, and verify that the session is
+  still local on every call. Return nil for remote, unknown, or ended sessions.
+  Local OSC 7 takes precedence; remote OSC 7 continues to block detected paths.
+  A configured provider returning nil, a relative path, or a path with unsafe
+  control or invisible characters blocks detected filesystem paths rather than
+  falling back to the application's directory. Removing the provider restores
+  the upstream application-directory default. URL and file safety checks remain
+  unchanged. Deferred requests consult the provider again when checked; it is
+  not a snapshot of the directory when the link was clicked.
 - OSC 7 is terminal output, so it cannot prove that the session is local. A
   remote program can report a `file://localhost/...` directory. The property is
   false by default. `LocalProcessTerminalView` sets it to true. Keep it false
