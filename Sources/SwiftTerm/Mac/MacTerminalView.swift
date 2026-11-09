@@ -5239,7 +5239,7 @@ open class TerminalView: NSView, NSUserInterfaceValidations, TerminalDelegate {
     /// the application's directory. Removing the provider restores the upstream
     /// application-directory default. The default provider is nil; all existing
     /// URL and file safety checks still apply.
-    public var linkFallbackDirectoryProvider: (@MainActor @Sendable () -> String?)?
+    public final var linkFallbackDirectoryProvider: (@MainActor @Sendable () -> String?)?
 }
 
 extension TerminalView: @MainActor NSTextInputClient {}
